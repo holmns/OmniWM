@@ -404,6 +404,7 @@ final class WMController {
         quakeTerminalController.applyGeometryToVisibleWindow()
         quakeTerminalController.reloadOpacityConfig()
         quakeTerminalController.reloadBackgroundBlur()
+        quakeTerminalController.reloadCornerRadius()
         updateWorkspaceBarSettings()
         updateHiddenBarSettings()
         _ = syncMouseWarpPolicy()
@@ -636,6 +637,10 @@ final class WMController {
 
     func reloadQuakeTerminalBackgroundBlur() {
         quakeTerminalController.reloadBackgroundBlur()
+    }
+
+    func reloadQuakeTerminalCornerRadius() {
+        quakeTerminalController.reloadCornerRadius()
     }
 
     func requestWorkspaceBarRefresh() {

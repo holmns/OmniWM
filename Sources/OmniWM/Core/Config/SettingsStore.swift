@@ -531,6 +531,25 @@ final class SettingsStore {
         }
     }
 
+    var quakeTerminalCornerStyle = QuakeTerminalCornerStyle(
+        rawValue: SettingsStore.defaultExport.quakeTerminalCornerStyle ?? ""
+    ) ?? .square {
+        didSet { scheduleSave() }
+    }
+
+    var quakeTerminalCornerRadius = SettingsStore.defaultExport.quakeTerminalCornerRadius
+        ?? GlobalWindowCornerPreferences.stockRadius
+    {
+        didSet {
+            let normalized = QuakeTerminalAppearancePolicy.normalizedCornerRadius(quakeTerminalCornerRadius)
+            if normalized != quakeTerminalCornerRadius {
+                quakeTerminalCornerRadius = normalized
+                return
+            }
+            scheduleSave()
+        }
+    }
+
     var quakeTerminalMonitorMode = QuakeTerminalMonitorMode(
         rawValue: SettingsStore.defaultExport.quakeTerminalMonitorMode ?? ""
     ) ?? .focusedWindow {
@@ -739,6 +758,8 @@ final class SettingsStore {
             quakeTerminalAutoHide: quakeTerminalAutoHide,
             quakeTerminalOpacity: quakeTerminalOpacity,
             quakeTerminalBackgroundBlurRadius: quakeTerminalBackgroundBlurRadius,
+            quakeTerminalCornerStyle: quakeTerminalCornerStyle.rawValue,
+            quakeTerminalCornerRadius: quakeTerminalCornerRadius,
             quakeTerminalMonitorMode: quakeTerminalMonitorMode.rawValue,
             appearanceMode: appearanceMode.rawValue
         )
@@ -887,6 +908,14 @@ final class SettingsStore {
             export.quakeTerminalBackgroundBlurRadius
                 ?? baseline.quakeTerminalBackgroundBlurRadius
                 ?? QuakeTerminalAppearancePolicy.disabledBackgroundBlurRadius
+        )
+        quakeTerminalCornerStyle = QuakeTerminalCornerStyle(
+            rawValue: export.quakeTerminalCornerStyle ?? baseline.quakeTerminalCornerStyle ?? ""
+        ) ?? .square
+        quakeTerminalCornerRadius = QuakeTerminalAppearancePolicy.normalizedCornerRadius(
+            export.quakeTerminalCornerRadius
+                ?? baseline.quakeTerminalCornerRadius
+                ?? GlobalWindowCornerPreferences.stockRadius
         )
         quakeTerminalMonitorMode = QuakeTerminalMonitorMode(
             rawValue: export.quakeTerminalMonitorMode ?? baseline.quakeTerminalMonitorMode ?? ""

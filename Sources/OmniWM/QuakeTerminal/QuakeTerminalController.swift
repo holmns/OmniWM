@@ -44,6 +44,13 @@ final class QuakeTerminalController: NSObject, NSWindowDelegate, QuakeTerminalTa
     private var appearanceObserver: NSKeyValueObservation?
     private var appliedColorScheme: ghostty_color_scheme_e?
     private var appliedBackgroundBlurRadius: Int?
+    private var systemCornerRadius = GlobalWindowCornerPreferences.stockRadius
+    private var appliedCornerGeometry: CornerGeometry?
+
+    private struct CornerGeometry: Equatable {
+        var radius: Double
+        var corners: CACornerMask
+    }
 
     private let settings: SettingsStore
     private let motionPolicy: MotionPolicy
@@ -197,6 +204,7 @@ final class QuakeTerminalController: NSObject, NSWindowDelegate, QuakeTerminalTa
         window?.close()
         window = nil
         appliedBackgroundBlurRadius = nil
+        appliedCornerGeometry = nil
         containerView = nil
         tabBar = nil
         restoreTarget = nil
@@ -221,6 +229,43 @@ final class QuakeTerminalController: NSObject, NSWindowDelegate, QuakeTerminalTa
 
     func reloadBackgroundBlur() {
         applyBackgroundBlur()
+    }
+
+    func reloadCornerRadius() {
+        refreshSystemCornerRadius()
+        applyCornerRadius()
+    }
+
+    /// Read once per show or settings change rather than per resize notification, which fires
+    /// continuously while the user drags an edge.
+    private func refreshSystemCornerRadius() {
+        systemCornerRadius = GlobalWindowCornerPreferences.effectiveSystemRadius()
+    }
+
+    /// Rounds the panel itself. The system-wide corner setting only reaches windows macOS
+    /// draws chrome for, and this one is borderless.
+    private func applyCornerRadius() {
+        guard let window, let container = containerView else { return }
+        let radius = QuakeTerminalAppearancePolicy.resolvedCornerRadius(
+            style: settings.quakeTerminalCornerStyle,
+            customRadius: settings.quakeTerminalCornerRadius,
+            systemRadius: systemCornerRadius
+        )
+        let visibleFrame = (window.screen ?? targetScreen()).visibleFrame
+        let corners = QuakeTerminalAppearancePolicy.roundedCorners(
+            frame: window.frame,
+            visibleFrame: visibleFrame
+        )
+        guard appliedCornerGeometry != CornerGeometry(radius: radius, corners: corners) else { return }
+
+        container.wantsLayer = true
+        guard let layer = container.layer else { return }
+        layer.cornerRadius = radius
+        layer.cornerCurve = .continuous
+        layer.maskedCorners = corners
+        layer.masksToBounds = radius > QuakeTerminalAppearancePolicy.squareCornerRadius
+        window.invalidateShadow()
+        appliedCornerGeometry = CornerGeometry(radius: radius, corners: corners)
     }
 
     /// The blur lives on the window-server window, so libghostty never sees it: it is applied
@@ -279,6 +324,7 @@ final class QuakeTerminalController: NSObject, NSWindowDelegate, QuakeTerminalTa
 
         if let customFrame = customFrameForShow(on: screen) {
             window.setFrame(customFrame, display: true)
+            applyCornerRadius()
             refreshSurfacesForCurrentScreen()
             return
         }
@@ -289,6 +335,7 @@ final class QuakeTerminalController: NSObject, NSWindowDelegate, QuakeTerminalTa
             widthPercent: settings.quakeTerminalWidthPercent,
             heightPercent: settings.quakeTerminalHeightPercent
         )
+        applyCornerRadius()
         refreshSurfacesForCurrentScreen()
     }
 
@@ -332,6 +379,8 @@ final class QuakeTerminalController: NSObject, NSWindowDelegate, QuakeTerminalTa
         self.tabBar = bar
 
         applyBackgroundBlur()
+        refreshSystemCornerRadius()
+        applyCornerRadius()
     }
 
     private var surfaceID: String {
@@ -543,6 +592,7 @@ final class QuakeTerminalController: NSObject, NSWindowDelegate, QuakeTerminalTa
 
         // No-op once applied; covers a window whose device was not backed yet at creation.
         applyBackgroundBlur()
+        reloadCornerRadius()
 
         animateWindowIn(window: window)
     }
@@ -733,6 +783,7 @@ final class QuakeTerminalController: NSObject, NSWindowDelegate, QuakeTerminalTa
         window.alphaValue = 1
         window.level = .floating
         makeWindowKey(window)
+        applyCornerRadius()
         refreshSurfacesForCurrentScreen()
 
         if !NSApp.isActive {
@@ -1154,6 +1205,7 @@ final class QuakeTerminalController: NSObject, NSWindowDelegate, QuakeTerminalTa
                 }
             }
 
+            applyCornerRadius()
             updateTabBarVisibility()
         }
     }

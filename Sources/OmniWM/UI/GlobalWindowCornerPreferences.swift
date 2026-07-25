@@ -62,7 +62,10 @@ final class GlobalWindowCornerPreferences {
     static let standardWindowKey = "NSConvolutionOverride1"
     static let panelWindowKey = "NSConvolutionOverride2"
     static let keys = [standardWindowKey, panelWindowKey]
-    static let defaultDraftRadius = 16.0
+    /// What macOS draws for a standard window when nothing overrides it. Nonisolated so
+    /// SettingsExport.defaults() can seed from it.
+    nonisolated static let stockRadius = 16.0
+    static let defaultDraftRadius = stockRadius
     static let squareStoredRadius = 0.01
     static let radiusRange = 0.0 ... 64.0
     static let relaunchMessage = "Fully quit and reopen affected apps to apply."
@@ -250,6 +253,16 @@ final class GlobalWindowCornerPreferences {
         var result = 0.0
         guard CFNumberGetValue(number, .doubleType, &result), result.isFinite else { return nil }
         return result
+    }
+
+    /// The radius macOS will actually draw for a standard window right now: the system-wide
+    /// override when one is set and usable, otherwise the stock radius. Anything OmniWM draws
+    /// itself has to resolve this to match, since no window chrome does it for us.
+    static func effectiveSystemRadius(operations: Operations = .live) -> Double {
+        guard case let .custom(radius) = decode(Snapshot(values: operations.copyMultiple())) else {
+            return stockRadius
+        }
+        return radius
     }
 
     private static var systemSupportsFeature: Bool {
