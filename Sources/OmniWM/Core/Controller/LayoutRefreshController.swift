@@ -1530,15 +1530,13 @@ import QuartzCore
                 controller.axEventHandler.cancelTrackedTilingPromotionRetry(windowId: winId)
             }
 
-            if trackedMode == .tiling,
-               controller.axEventHandler.deferTilingAdmissionIfNeeded(
-                   evaluation: evaluation,
-                   axRef: ax,
-                   pid: pid,
-                   windowId: winId,
-                   existingEntry: existingEntry
-               )
-            {
+            if controller.axEventHandler.deferAdmissionIfNeeded(
+                evaluation: evaluation,
+                axRef: ax,
+                token: token,
+                trackedMode: trackedMode,
+                existingEntry: existingEntry
+            ) {
                 if let existingEntry {
                     seenKeys.insert(existingEntry.token)
                 }
@@ -1718,6 +1716,12 @@ import QuartzCore
                     allowLiveFrameFallback: false
                 )
             }
+            focusNewlyAdmittedFloatingWindow(
+                token: admittedToken,
+                isNewEntry: existingEntry == nil,
+                trackedMode: trackedMode,
+                hasCreatePlacementContext: createPlacementContext != nil
+            )
             seenKeys.insert(admittedToken)
         }
 
@@ -2404,10 +2408,6 @@ import QuartzCore
         layoutState.pendingRefresh = pendingRefresh
     }
 
-    func backingScale(for monitor: Monitor) -> CGFloat {
-        NSScreen.screens.first(where: { $0.displayId == monitor.displayId })?.backingScaleFactor ?? 2.0
-    }
-
     private func workspaceEntriesSnapshot(
         on controller: WMController
     ) -> [(workspace: WorkspaceDescriptor, entries: [WindowState])] {
@@ -2984,52 +2984,6 @@ import QuartzCore
         let x = (topLeft.x - frame.minX) / width
         let y = (frame.maxY - topLeft.y) / height
         return CGPoint(x: min(max(0, x), 1), y: min(max(0, y), 1))
-    }
-
-    private func preferredHideSides(for monitors: [Monitor]) -> [Monitor.ID: HideSide] {
-        let important = 10
-        var preferredSides: [Monitor.ID: HideSide] = [:]
-
-        for monitor in monitors {
-            let monitorFrame = monitor.frame
-            let xOff = monitorFrame.width * 0.1
-            let yOff = monitorFrame.height * 0.1
-
-            let bottomRight = CGPoint(x: monitorFrame.maxX, y: monitorFrame.minY)
-            let bottomLeft = CGPoint(x: monitorFrame.minX, y: monitorFrame.minY)
-
-            let rightPoints = [
-                CGPoint(x: bottomRight.x + 2, y: bottomRight.y - yOff),
-                CGPoint(x: bottomRight.x - xOff, y: bottomRight.y + 2),
-                CGPoint(x: bottomRight.x + 2, y: bottomRight.y + 2)
-            ]
-
-            let leftPoints = [
-                CGPoint(x: bottomLeft.x - 2, y: bottomLeft.y - yOff),
-                CGPoint(x: bottomLeft.x + xOff, y: bottomLeft.y + 2),
-                CGPoint(x: bottomLeft.x - 2, y: bottomLeft.y + 2)
-            ]
-
-            func sideScore(_ points: [CGPoint]) -> Int {
-                monitors.reduce(0) { partial, other in
-                    let c1 = other.frame.contains(points[0]) ? 1 : 0
-                    let c2 = other.frame.contains(points[1]) ? 1 : 0
-                    let c3 = other.frame.contains(points[2]) ? 1 : 0
-                    return partial + c1 + c2 + important * c3
-                }
-            }
-
-            let leftScore = sideScore(leftPoints)
-            let rightScore = sideScore(rightPoints)
-            preferredSides[monitor.id] = leftScore < rightScore ? .left : .right
-        }
-
-        return preferredSides
-    }
-
-    func preferredHideSide(for monitor: Monitor) -> HideSide {
-        guard let controller else { return .right }
-        return preferredHideSides(for: controller.workspaceManager.monitors)[monitor.id] ?? .right
     }
 
     fileprivate func hasPendingRevealTransaction(for windowId: Int) -> Bool {

@@ -224,7 +224,14 @@ final class WindowRuleEngine {
     static let cleanShotBundleId = "pl.maketheweb.cleanshotx"
     static let systemTextInputPanelRuleName = "systemTextInputPanel"
     static let ownedWindowRuleName = "ownedWindow"
+    static let elevatedWindowLevelRuleName = "elevatedWindowLevel"
     private static let cleanShotRecordingOverlayRuleName = "cleanShotRecordingOverlay"
+
+    /// `kCGPopUpMenuWindowLevel`. At and above it macOS stacks menus, popovers, help tags, drag
+    /// images and screensavers - transient chrome that belongs to whatever spawned it. Ordinary app
+    /// windows sit at level 0, and the panels and dialogs a user may still want floated stay well
+    /// below this (floating 3, modal 8, utility 19).
+    static let transientSurfaceWindowLevel: Int32 = 101
     private static let systemTextInputPanelBundleIds: Set<String> = [
         "com.apple.characterpaletteim",
         "com.apple.emojifunctionrowitem-container",
@@ -403,6 +410,29 @@ final class WindowRuleEngine {
             )
         }
 
+        // A menu-bar app's popover is a real AX window of an accessory process, so nothing in the
+        // AX facts separates it from a utility panel the user would want floated - only its window
+        // level does. Tracking one is never right: the popover dismisses itself as soon as we front
+        // it or move it, and it leaves a workspace-bar entry behind. Takes precedence over user
+        // rules, because no rule should be able to make OmniWM manage a menu. CleanShot's recording
+        // overlay is the one elevated surface that is a real window, and keeps being decided by its
+        // own built-in rule further down, where it still picks up any matching user rule's effects.
+        if let level = facts.windowServer?.level,
+           level >= Self.transientSurfaceWindowLevel,
+           !Self.isCleanShotRecordingOverlay(facts)
+        {
+            return WindowDecision(
+                disposition: .unmanaged,
+                source: .builtInRule(Self.elevatedWindowLevelRuleName),
+                layoutDecisionKind: .explicitLayout,
+                workspaceName: nil,
+                ruleEffects: .none,
+                admissionHints: .none,
+                heuristicReasons: [],
+                deferredReason: nil
+            )
+        }
+
         let userRule = bestMatch(in: compiledUserRules, facts: facts)
         let builtInRule = bestMatch(in: builtInRules, facts: facts)
 
@@ -548,18 +578,22 @@ final class WindowRuleEngine {
         )
     }
 
+    /// CleanShot's recording overlay is a genuine window the user works with, even though it sits
+    /// above the transient-surface level. It is the one known exception to the elevated-level gate,
+    /// so both that gate and the decision below read the same predicate.
+    static func isCleanShotRecordingOverlay(_ facts: WindowRuleFacts) -> Bool {
+        facts.ax.bundleId == cleanShotBundleId
+            && facts.ax.subrole == (kAXStandardWindowSubrole as String)
+            && facts.windowServer?.level == 103
+    }
+
     private func cleanShotRecordingOverlayDecision(
         for facts: WindowRuleFacts,
         workspaceName: String?,
         effects: ManagedWindowRuleEffects,
         admissionHints: ManagedWindowAdmissionHints
     ) -> WindowDecision? {
-        guard facts.ax.bundleId == Self.cleanShotBundleId,
-              facts.ax.subrole == (kAXStandardWindowSubrole as String),
-              facts.windowServer?.level == 103
-        else {
-            return nil
-        }
+        guard Self.isCleanShotRecordingOverlay(facts) else { return nil }
 
         return WindowDecision(
             disposition: .floating,

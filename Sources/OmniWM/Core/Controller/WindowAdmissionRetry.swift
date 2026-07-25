@@ -12,21 +12,25 @@ extension AXEventHandler {
         pid == getpid()
     }
 
-    func deferTilingAdmissionIfNeeded(
+    func deferAdmissionIfNeeded(
         evaluation: WMController.WindowDecisionEvaluation,
         axRef: AXWindowRef,
-        pid: pid_t,
-        windowId: Int,
+        token: WindowToken,
+        trackedMode: TrackedWindowMode,
         existingEntry: WindowState?
     ) -> Bool {
+        // Geometry gates entry only: a window already tracked keeps its slot, and of the tracked
+        // ones only a promotion into tiling re-checks it.
+        guard trackedMode == .tiling || existingEntry == nil else { return false }
         guard existingEntry?.mode != .tiling else { return false }
         guard let controller,
-              controller.shouldDeferTilingAdmission(
+              controller.shouldDeferAdmission(
                   evaluation: evaluation,
                   axRef: axRef,
-                  windowInfo: evaluation.facts.windowServer
+                  windowInfo: evaluation.facts.windowServer,
+                  trackedMode: trackedMode
               ),
-              let windowId = UInt32(exactly: windowId)
+              let windowId = UInt32(exactly: token.windowId)
         else {
             return false
         }
@@ -39,7 +43,7 @@ extension AXEventHandler {
         } else {
             _ = scheduleCandidateAdmissionRetry(
                 windowId: windowId,
-                pid: pid,
+                pid: token.pid,
                 axRef: axRef,
                 reason: .degenerateGeometry
             )

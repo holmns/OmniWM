@@ -47,6 +47,47 @@ extension LayoutRefreshController {
             || entry.ruleEffects != ruleEffects
     }
 
+    /// A brand-new floating window that macOS just created and fronted must take focus, mirroring
+    /// the AXWindowCreated fast path (`trackPreparedCreate`). Without it the workspace focused token
+    /// stays on the previously focused tiled window, and the post-admission relayout's focus recovery
+    /// re-fronts that window, stealing focus from the one the user just opened. The create-placement
+    /// context is the same signal the fast path uses to tell a user-created window from a window
+    /// merely discovered during startup enumeration, which must not steal focus.
+    static func shouldFocusNewlyAdmittedFloatingWindow(
+        isNewEntry: Bool,
+        trackedMode: TrackedWindowMode,
+        hasCreatePlacementContext: Bool
+    ) -> Bool {
+        isNewEntry && trackedMode == .floating && hasCreatePlacementContext
+    }
+
+    /// Focuses a just-admitted floating window that qualifies under
+    /// `shouldFocusNewlyAdmittedFloatingWindow`, routing through the focus-operation seam
+    /// (`raiseFloatingWindow` -> `focusWindow` -> `WindowFocusOperations`). No-op before services
+    /// start or if the token is no longer a live floating entry. Returns whether it raised.
+    @discardableResult
+    func focusNewlyAdmittedFloatingWindow(
+        token: WindowToken,
+        isNewEntry: Bool,
+        trackedMode: TrackedWindowMode,
+        hasCreatePlacementContext: Bool
+    ) -> Bool {
+        guard Self.shouldFocusNewlyAdmittedFloatingWindow(
+            isNewEntry: isNewEntry,
+            trackedMode: trackedMode,
+            hasCreatePlacementContext: hasCreatePlacementContext
+        ) else {
+            return false
+        }
+        guard let controller,
+              controller.hasStartedServices,
+              controller.workspaceManager.entry(for: token)?.mode == .floating
+        else {
+            return false
+        }
+        return controller.windowActionHandler.raiseFloatingWindow(token)
+    }
+
     func observedWindowFrame(_ entry: WindowState) -> CGRect? {
         fastFrame(for: entry.token, axRef: entry.axRef)
     }

@@ -40,6 +40,110 @@ final class WindowRuleEngineTests: XCTestCase {
         engine.decision(for: facts, token: nil, appFullscreen: false)
     }
 
+    private func facts(
+        appName: String?,
+        bundleId: String?,
+        windowLevel: Int32
+    ) -> WindowRuleFacts {
+        let base = facts(appName: appName, bundleId: bundleId, subrole: "AXUnknown")
+        return WindowRuleFacts(
+            appName: base.appName,
+            ax: base.ax,
+            sizeConstraints: base.sizeConstraints,
+            windowServer: WindowServerInfo(
+                id: 1,
+                pid: 4321,
+                level: windowLevel,
+                frame: CGRect(x: 1420, y: 27, width: 310, height: 824)
+            )
+        )
+    }
+
+    func testMenuBarPopoverAboveNormalLevelsIsUnmanaged() {
+        // A menu-bar app's popover (BetterDisplay's opens at the screensaver level) must never be
+        // tracked: fronting or moving it makes the app dismiss it, and it strands a workspace-bar
+        // entry. Only the window level distinguishes it from a floatable panel.
+        let engine = WindowRuleEngine()
+        let popover = evaluate(
+            engine,
+            facts(appName: "BetterDisplay", bundleId: "pro.betterdisplay.BetterDisplay", windowLevel: 1000)
+        )
+
+        XCTAssertEqual(popover.disposition, .unmanaged)
+        XCTAssertEqual(popover.source, .builtInRule(WindowRuleEngine.elevatedWindowLevelRuleName))
+    }
+
+    func testUserRuleCannotForceAnElevatedSurfaceToBeManaged() {
+        let engine = WindowRuleEngine()
+        let rule = AppRule(bundleId: "pro.betterdisplay.BetterDisplay", layout: .tile)
+        engine.rebuild(rules: [rule])
+
+        let popover = evaluate(
+            engine,
+            facts(appName: "BetterDisplay", bundleId: "pro.betterdisplay.BetterDisplay", windowLevel: 1000)
+        )
+
+        XCTAssertEqual(popover.disposition, .unmanaged)
+        XCTAssertNotEqual(popover.source, .userRule(rule.id))
+    }
+
+    func testCleanShotRecordingOverlaySurvivesTheElevatedLevelGate() {
+        // CleanShot's recording overlay sits at level 103, above the transient-surface gate, but is
+        // a real window the user works with. Its built-in rule must still win, and must still be
+        // reached at the point where a matching user rule's workspace and sizing effects apply.
+        let engine = WindowRuleEngine()
+        let rule = AppRule(
+            bundleId: WindowRuleEngine.cleanShotBundleId,
+            layout: .float,
+            assignToWorkspace: "5",
+            minWidth: 320
+        )
+        engine.rebuild(rules: [rule])
+
+        let base = facts(
+            appName: "CleanShot X",
+            bundleId: WindowRuleEngine.cleanShotBundleId
+        )
+        let overlay = WindowRuleFacts(
+            appName: base.appName,
+            ax: base.ax,
+            sizeConstraints: base.sizeConstraints,
+            windowServer: WindowServerInfo(
+                id: 2,
+                pid: 8765,
+                level: 103,
+                frame: CGRect(x: 0, y: 0, width: 900, height: 600)
+            )
+        )
+        let decision = evaluate(engine, overlay)
+
+        XCTAssertEqual(decision.disposition, .floating)
+        XCTAssertNotEqual(
+            decision.source,
+            .builtInRule(WindowRuleEngine.elevatedWindowLevelRuleName),
+            "the elevated-level gate must not intercept the recording overlay"
+        )
+        XCTAssertEqual(decision.workspaceName, "5", "it still picks up the matching user rule")
+        XCTAssertEqual(decision.ruleEffects.minWidth, 320)
+    }
+
+    func testOrdinaryAndFloatingLevelWindowsStayManageable() {
+        // The gate must sit above the levels apps use for panels and dialogs, so those keep being
+        // classified normally rather than being dropped wholesale.
+        let engine = WindowRuleEngine()
+        for level: Int32 in [0, 3, 8, 19] {
+            let decision = evaluate(
+                engine,
+                facts(appName: "Preview", bundleId: "com.apple.Preview", windowLevel: level)
+            )
+            XCTAssertNotEqual(
+                decision.disposition,
+                .unmanaged,
+                "level \(level) is an ordinary app window level and must still be classified"
+            )
+        }
+    }
+
     func testAppNameWildcardMatchesNoBundleWindows() {
         let engine = WindowRuleEngine()
         let rule = AppRule(bundleId: "", appNameSubstring: "VMD", layout: .float)
