@@ -7,6 +7,12 @@ struct QuakeTerminalSettingsTab: View {
     @Bindable var settings: SettingsStore
     @Bindable var controller: WMController
 
+    private var blurValueText: String {
+        settings.quakeTerminalBackgroundBlurRadius == QuakeTerminalAppearancePolicy.disabledBackgroundBlurRadius
+            ? "Off"
+            : "\(settings.quakeTerminalBackgroundBlurRadius)"
+    }
+
     var body: some View {
         Form {
             Section("Quake Terminal") {
@@ -63,6 +69,54 @@ struct QuakeTerminalSettingsTab: View {
                     )
                     .onChange(of: settings.quakeTerminalOpacity) { _, _ in
                         controller.reloadQuakeTerminalOpacity()
+                    }
+
+                    SettingsSliderRow(
+                        label: "Background Blur",
+                        value: Binding(
+                            get: { Double(settings.quakeTerminalBackgroundBlurRadius) },
+                            set: { settings.quakeTerminalBackgroundBlurRadius = Int($0.rounded()) }
+                        ),
+                        range: Double(QuakeTerminalAppearancePolicy.minimumBackgroundBlurRadius)
+                            ... Double(QuakeTerminalAppearancePolicy.maximumBackgroundBlurRadius),
+                        step: 5,
+                        valueText: blurValueText
+                    )
+                    .onChange(of: settings.quakeTerminalBackgroundBlurRadius) { _, _ in
+                        controller.reloadQuakeTerminalBackgroundBlur()
+                    }
+
+                    if QuakeTerminalAppearancePolicy.backgroundBlurIsHiddenByOpaqueBackground(
+                        radius: settings.quakeTerminalBackgroundBlurRadius,
+                        opacity: settings.quakeTerminalOpacity
+                    ) {
+                        SettingsCaption("Blur only shows through a translucent terminal - lower the opacity to see it.")
+                    }
+
+                    Picker("Corners", selection: $settings.quakeTerminalCornerStyle) {
+                        ForEach(QuakeTerminalCornerStyle.allCases, id: \.self) { style in
+                            Text(style.displayName).tag(style)
+                        }
+                    }
+                    .onChange(of: settings.quakeTerminalCornerStyle) { _, _ in
+                        controller.reloadQuakeTerminalCornerRadius()
+                    }
+
+                    if settings.quakeTerminalCornerStyle == .custom {
+                        SettingsSliderRow(
+                            label: "Corner Radius",
+                            value: $settings.quakeTerminalCornerRadius,
+                            range: QuakeTerminalAppearancePolicy.squareCornerRadius
+                                ... QuakeTerminalAppearancePolicy.maximumCornerRadius,
+                            step: 0.5,
+                            valueText: AppWindowCornerRadiusFormatting.string(
+                                for: settings.quakeTerminalCornerRadius
+                            ),
+                            valueWidth: 72
+                        )
+                        .onChange(of: settings.quakeTerminalCornerRadius) { _, _ in
+                            controller.reloadQuakeTerminalCornerRadius()
+                        }
                     }
                 }
 
