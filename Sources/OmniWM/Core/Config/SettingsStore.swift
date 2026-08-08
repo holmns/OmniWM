@@ -51,6 +51,10 @@ final class SettingsStore {
         didSet { scheduleSave() }
     }
 
+    var focusIncludesFloatingWindows = SettingsStore.defaultExport.focusIncludesFloatingWindows {
+        didSet { scheduleSave() }
+    }
+
     var moveCrossesMonitorAtEdge = SettingsStore.defaultExport.moveCrossesMonitorAtEdge {
         didSet { scheduleSave() }
     }
@@ -694,6 +698,7 @@ final class SettingsStore {
             moveMouseToFocusedWindow: moveMouseToFocusedWindow,
             focusFollowsWindowToMonitor: focusFollowsWindowToMonitor,
             focusCrossesMonitorAtEdge: focusCrossesMonitorAtEdge,
+            focusIncludesFloatingWindows: focusIncludesFloatingWindows,
             moveCrossesMonitorAtEdge: moveCrossesMonitorAtEdge,
             mouseWarpMargin: mouseWarpMargin,
             mouseWarpEnabled: mouseWarpEnabled,
@@ -813,6 +818,7 @@ final class SettingsStore {
         moveMouseToFocusedWindow = export.moveMouseToFocusedWindow
         focusFollowsWindowToMonitor = export.focusFollowsWindowToMonitor
         focusCrossesMonitorAtEdge = export.focusCrossesMonitorAtEdge
+        focusIncludesFloatingWindows = export.focusIncludesFloatingWindows
         moveCrossesMonitorAtEdge = export.moveCrossesMonitorAtEdge
         mouseWarpMargin = export.mouseWarpMargin
         mouseWarpEnabled = export.mouseWarpEnabled

@@ -694,6 +694,9 @@ final class CommandHandler {
 
     private func focusWindow(direction: Direction) {
         guard let controller else { return }
+        if focusFloatingNeighbor(direction: direction) {
+            return
+        }
         switch currentLayoutType() {
         case .dwindle:
             if controller.dwindleLayoutHandler.focusNeighbor(direction: direction) {
@@ -712,6 +715,93 @@ final class CommandHandler {
             {
                 _ = controller.workspaceNavigationHandler.focusMonitor(direction: direction)
             }
+        }
+    }
+
+    private func focusFloatingNeighbor(direction: Direction) -> Bool {
+        guard let controller,
+              controller.settings.focusIncludesFloatingWindows,
+              let workspaceId = controller.activeWorkspace()?.id,
+              let focusedToken = controller.workspaceManager.focusedToken,
+              let focusedEntry = controller.workspaceManager.entry(for: focusedToken),
+              focusedEntry.workspaceId == workspaceId
+        else {
+            return false
+        }
+
+        let candidates = controller.directionalFocusCandidates(in: workspaceId)
+        guard candidates.contains(where: \.isFloating),
+              let origin = candidates.first(where: { $0.token == focusedToken })?.frame
+        else {
+            return false
+        }
+
+        let others = candidates.filter { $0.token != focusedToken }
+
+        if focusedEntry.mode == .floating {
+            guard let target = DirectionalFocusResolver.nearest(
+                direction: direction,
+                from: origin,
+                candidates: others
+            ) else {
+                return false
+            }
+            focusDirectionalCandidate(target, in: workspaceId)
+            return true
+        }
+
+        guard let floatingTarget = DirectionalFocusResolver.nearest(
+            direction: direction,
+            from: origin,
+            candidates: others.filter(\.isFloating)
+        ),
+            let floatingAdvance = DirectionalFocusResolver.axisAdvance(
+                direction: direction,
+                from: origin,
+                to: floatingTarget.frame
+            )
+        else {
+            return false
+        }
+
+        let tiledAdvance = DirectionalFocusResolver.nearest(
+            direction: direction,
+            from: origin,
+            candidates: others.filter { !$0.isFloating }
+        )
+        .flatMap {
+            DirectionalFocusResolver.axisAdvance(direction: direction, from: origin, to: $0.frame)
+        }
+
+        guard let tiledAdvance else {
+            focusDirectionalCandidate(floatingTarget, in: workspaceId)
+            return true
+        }
+        guard floatingAdvance < tiledAdvance else { return false }
+        focusDirectionalCandidate(floatingTarget, in: workspaceId)
+        return true
+    }
+
+    private func focusDirectionalCandidate(
+        _ candidate: DirectionalFocusCandidate,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) {
+        guard let controller else { return }
+        if candidate.isFloating {
+            controller.focusWindow(candidate.token)
+            return
+        }
+
+        switch currentLayoutType() {
+        case .dwindle:
+            _ = controller.dwindleLayoutHandler.activateWindow(candidate.token, in: workspaceId)
+        case .niri,
+             .defaultLayout:
+            guard let node = controller.niriEngine?.findNode(for: candidate.token, in: workspaceId) else {
+                controller.focusWindow(candidate.token)
+                return
+            }
+            controller.niriLayoutHandler.activatePointerHoveredWindow(node, in: workspaceId)
         }
     }
 

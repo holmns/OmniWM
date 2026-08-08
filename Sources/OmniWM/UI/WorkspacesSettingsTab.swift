@@ -67,6 +67,14 @@ struct WorkspacesSettingsTab: View {
                 }
             }
 
+            Section("Focus") {
+                Toggle("Include Floating Windows", isOn: $settings.focusIncludesFloatingWindows)
+                SettingsCaption(
+                    "Directional focus steps through floating windows at the position they sit on "
+                        + "screen. Turn this off to move only between tiled windows."
+                )
+            }
+
             Section {
                 if settings.workspaceConfigurations.isEmpty {
                     Text("No workspaces configured")

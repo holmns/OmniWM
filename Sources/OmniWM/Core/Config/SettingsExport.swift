@@ -20,6 +20,7 @@ struct SettingsExport: Equatable {
     var moveMouseToFocusedWindow: Bool
     var focusFollowsWindowToMonitor: Bool
     var focusCrossesMonitorAtEdge: Bool
+    var focusIncludesFloatingWindows: Bool
     var moveCrossesMonitorAtEdge: Bool
     var mouseWarpMargin: Int
     var mouseWarpEnabled: Bool
@@ -149,6 +150,7 @@ extension SettingsExport {
             moveMouseToFocusedWindow: false,
             focusFollowsWindowToMonitor: false,
             focusCrossesMonitorAtEdge: false,
+            focusIncludesFloatingWindows: true,
             moveCrossesMonitorAtEdge: false,
             mouseWarpMargin: 1,
             mouseWarpEnabled: true,

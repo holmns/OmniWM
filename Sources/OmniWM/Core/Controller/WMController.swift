@@ -1352,6 +1352,36 @@ final class WMController {
             ?? (try? AXWindowService.frame(entry.axRef))
     }
 
+    func directionalFocusCandidates(
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> [DirectionalFocusCandidate] {
+        var candidates: [DirectionalFocusCandidate] = []
+
+        for entry in workspaceManager.tiledEntries(in: workspaceId) {
+            guard isManagedWindowDisplayable(entry.token),
+                  niriEngine?.findNode(for: entry.token, in: workspaceId)?.isHiddenInTabbedMode != true,
+                  let frame = axManager.lastAppliedFrame(for: entry.windowId) ?? liveFrame(for: entry)
+            else {
+                continue
+            }
+            candidates.append(.init(token: entry.token, frame: frame, isFloating: false))
+        }
+
+        for entry in workspaceManager.floatingEntries(in: workspaceId) {
+            guard isManagedWindowDisplayable(entry.token),
+                  !workspaceManager.isScratchpadToken(entry.token),
+                  workspaceManager.hiddenState(for: entry.token) == nil,
+                  let frame = workspaceManager.floatingState(for: entry.token)?.lastFrame
+                  ?? liveFrame(for: entry)
+            else {
+                continue
+            }
+            candidates.append(.init(token: entry.token, frame: frame, isFloating: true))
+        }
+
+        return candidates
+    }
+
     private func floatingPlacementMonitor(
         for entry: WindowState,
         preferredMonitor: Monitor? = nil,

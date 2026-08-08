@@ -52,6 +52,7 @@ struct CanonicalTOMLConfig: Codable, Equatable {
         var followsWindowToMonitor: Bool
         var crossesMonitorAtEdge: Bool
         var moveCrossesMonitorAtEdge: Bool
+        var includesFloatingWindows: Bool
     }
 
     struct MouseWarp: Codable, Equatable {
@@ -541,6 +542,12 @@ extension CanonicalTOMLConfig.Focus {
             Bool.self,
             forKey: .moveCrossesMonitorAtEdge,
             default: defaults.moveCrossesMonitorAtEdge,
+            recovering: recovering
+        )
+        includesFloatingWindows = try container.decode(
+            Bool.self,
+            forKey: .includesFloatingWindows,
+            default: defaults.includesFloatingWindows,
             recovering: recovering
         )
     }
@@ -1153,7 +1160,8 @@ extension CanonicalTOMLConfig {
             moveMouseToFocusedWindow: export.moveMouseToFocusedWindow,
             followsWindowToMonitor: export.focusFollowsWindowToMonitor,
             crossesMonitorAtEdge: export.focusCrossesMonitorAtEdge,
-            moveCrossesMonitorAtEdge: export.moveCrossesMonitorAtEdge
+            moveCrossesMonitorAtEdge: export.moveCrossesMonitorAtEdge,
+            includesFloatingWindows: export.focusIncludesFloatingWindows
         )
         mouseWarp = MouseWarp(
             margin: export.mouseWarpMargin,
@@ -1290,6 +1298,7 @@ extension CanonicalTOMLConfig {
             moveMouseToFocusedWindow: focus.moveMouseToFocusedWindow,
             focusFollowsWindowToMonitor: focus.followsWindowToMonitor,
             focusCrossesMonitorAtEdge: focus.crossesMonitorAtEdge,
+            focusIncludesFloatingWindows: focus.includesFloatingWindows,
             moveCrossesMonitorAtEdge: focus.moveCrossesMonitorAtEdge,
             mouseWarpMargin: mouseWarp.margin,
             mouseWarpEnabled: mouseWarp.enabled,
