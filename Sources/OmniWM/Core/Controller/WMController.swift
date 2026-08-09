@@ -1358,7 +1358,8 @@ final class WMController {
         var candidates: [DirectionalFocusCandidate] = []
 
         for entry in workspaceManager.tiledEntries(in: workspaceId) {
-            guard isManagedWindowDisplayable(entry.token),
+            guard entry.interactionPolicy.mayFocus,
+                  isManagedWindowDisplayable(entry.token),
                   niriEngine?.findNode(for: entry.token, in: workspaceId)?.isHiddenInTabbedMode != true,
                   let frame = axManager.lastAppliedFrame(for: entry.windowId) ?? liveFrame(for: entry)
             else {
@@ -1368,7 +1369,8 @@ final class WMController {
         }
 
         for entry in workspaceManager.floatingEntries(in: workspaceId) {
-            guard isManagedWindowDisplayable(entry.token),
+            guard entry.interactionPolicy.mayFocus,
+                  isManagedWindowDisplayable(entry.token),
                   !workspaceManager.isScratchpadToken(entry.token),
                   workspaceManager.hiddenState(for: entry.token) == nil,
                   let frame = workspaceManager.floatingState(for: entry.token)?.lastFrame

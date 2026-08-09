@@ -750,35 +750,14 @@ final class CommandHandler {
             return true
         }
 
-        guard let floatingTarget = DirectionalFocusResolver.nearest(
+        guard let target = DirectionalFocusResolver.nearest(
             direction: direction,
             from: origin,
-            candidates: others.filter(\.isFloating)
-        ),
-            let floatingAdvance = DirectionalFocusResolver.axisAdvance(
-                direction: direction,
-                from: origin,
-                to: floatingTarget.frame
-            )
-        else {
+            candidates: others
+        ), target.isFloating else {
             return false
         }
-
-        let tiledAdvance = DirectionalFocusResolver.nearest(
-            direction: direction,
-            from: origin,
-            candidates: others.filter { !$0.isFloating }
-        )
-        .flatMap {
-            DirectionalFocusResolver.axisAdvance(direction: direction, from: origin, to: $0.frame)
-        }
-
-        guard let tiledAdvance else {
-            focusDirectionalCandidate(floatingTarget, in: workspaceId)
-            return true
-        }
-        guard floatingAdvance < tiledAdvance else { return false }
-        focusDirectionalCandidate(floatingTarget, in: workspaceId)
+        focusDirectionalCandidate(target, in: workspaceId)
         return true
     }
 

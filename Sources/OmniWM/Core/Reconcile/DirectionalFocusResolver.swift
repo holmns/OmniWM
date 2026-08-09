@@ -40,7 +40,7 @@ enum DirectionalFocusResolver {
         }?.0
     }
 
-    static func axisAdvance(
+    private static func axisAdvance(
         direction: Direction,
         from origin: CGRect,
         to target: CGRect

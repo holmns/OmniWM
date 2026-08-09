@@ -92,6 +92,28 @@ final class DirectionalFocusResolverTests: XCTestCase {
         )
     }
 
+    func testNonOverlappingFloatingStripLosesToAnOverlappingTiledNeighbour() {
+        let b = CGRect(x: 1682, y: 5, width: 1673, height: 925)
+        let a = candidate(1, CGRect(x: 5, y: 5, width: 1673, height: 1855), floating: false)
+        let strip = candidate(2, CGRect(x: 0, y: 1860, width: 3360, height: 30), floating: true)
+
+        XCTAssertEqual(
+            DirectionalFocusResolver.nearest(direction: .left, from: b, candidates: [strip, a]),
+            a
+        )
+    }
+
+    func testOverlappingFloatingWindowStillWinsWhenNearer() {
+        let b = CGRect(x: 1682, y: 5, width: 1673, height: 925)
+        let a = candidate(1, CGRect(x: 5, y: 5, width: 1673, height: 1855), floating: false)
+        let near = candidate(2, CGRect(x: 1400, y: 100, width: 200, height: 400), floating: true)
+
+        XCTAssertEqual(
+            DirectionalFocusResolver.nearest(direction: .left, from: b, candidates: [a, near]),
+            near
+        )
+    }
+
     func testEmptyCandidatesResolveToNil() {
         XCTAssertNil(
             DirectionalFocusResolver.nearest(direction: .left, from: origin, candidates: [])
